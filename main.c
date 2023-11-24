@@ -1,11 +1,273 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <windows.h>
+#include <conio.h>
+#include <time.h>
+#include "blocks.h"
+#include "ScreenManage.h"
 #include "RankingManage.h"
+#include "key_input.h"
 
-int main()
+#define false 0
+#define true 1
+
+//***************** Àü¿ª º¯¼öµé **************************************
+int i,j;            //ÀÓ½Ãº¯¼ö (ÀÚÁÖ¾²¹Ç·Î ¹Ì¸® ÇÒ´ç)
+
+int b_type;         //ºí·Ï Á¾·ù¸¦ ÀúÀå (7°¡Áö Áß ÇÑ°¡Áö¸¦ Á¤ÇÒ¶§ »ç¿ëÇÏ´Â º¯¼ö)
+int b_rotation;     //ºí·Ï È¸Àü°ª ÀúÀå (4°¡Áö È¸Àü°ªÁß ÇÏ³ª¸¦ Á¤ÇÒ¶§ »ç¿ëÇÏ´Â º¯¼ö)
+int b_type_next;    //´ÙÀ½ ºí·Ï°ªÀ» ÀúÀåÇÏ´Â º¯¼ö
+
+// °¡Àå ¸¹ÀÌ Àü¼öÁ¶»ç, ºÎºÐÅ½»öÀÌ ½ÃÇàµÇ´Â°ÍÀÌ Ãâ·Â, ¾÷µ¥ÀÌÆ®¿¡ ´ëÇÑ °ø°£ÀÌ´Ù.
+// µû¶ó¼­ °ø°£¿¡ ÀúÀåÇÏ´Â°ªÀÇ ¹üÀ§°¡ charÀÇ ¹üÀ§³»ÀÌ¹Ç·Î char·Î ¼±¾ðÇÏ¿© ¿À¹öÇìµå¸¦ ÁÙÀÌ°íÀÚÇÔ
+char SCREEN_UPDATE[SCREEN_Y][SCREEN_X]; //¾÷µ¥ÀÌÆ® ³»¿ëÀÌ ´ã±è
+char SCREEN_MEMORY[SCREEN_Y][SCREEN_X]; //Ãâ·Â È­¸é
+
+int bx, by; //ÀÌµ¿ÁßÀÎ ºí·ÏÀÇ °ÔÀÓÆÇ»óÀÇ x,yÁÂÇ¥¸¦ ÀúÀå
+
+int key; //Å°º¸µå·Î ÀÔ·Â¹ÞÀº Å°°ªÀ» ÀúÀå
+
+int speed; //°ÔÀÓÁøÇà¼Óµµ (SleepÇÔ¼öÀÇ ÀÎÀÚ°ªÀ¸·Î »ç¿ë¿¹Á¤)
+int score; //ÇöÀç Á¡¼ö
+int last_score = 0; //¸¶Áö¸·°ÔÀÓÁ¡¼ö
+int best_score = 0; //ÃÖ°í°ÔÀÓÁ¡¼ö
+
+int new_block_on = 0; //»õ·Î¿î ºí·°ÀÌ ÇÊ¿äÇÔÀ» ¾Ë¸®´Â flag
+int crush_on = 0; //ÇöÀç ÀÌµ¿ÁßÀÎ ºí·ÏÀÌ Ãæµ¹»óÅÂÀÎÁö ¾Ë·ÁÁÖ´Â flag
+int space_key_on = 0; //hard drop»óÅÂÀÓÀ» ¾Ë·ÁÁÖ´Â flag (½ºÆäÀÌ½º¹Ù¸¦ ´©¸¦ °æ¿ì -> hard drop »óÅÂ)
+
+int PAUSE_FLAG = 0;
+
+// ************************ function *******************************
+
+void reset(void); //°ÔÀÓÆÇ ÃÊ±âÈ­
+void reset_game(void); //¸ÞÀÎ °ÔÀÓÆÇ(SCREEN_UPDATE[][]¸¦ ÃÊ±âÈ­)
+void reset_game_cpy(void); //copy °ÔÀÓÆÇ(SCREEN_MEMORY[][]¸¦ ÃÊ±âÈ­)
+void make_new_block(void); //»õ·Î¿î ºí·ÏÀ» ÇÏ³ª ¸¸µê
+void down_block(void); //ºí·ÏÀ» ¾Æ·¡·Î ¶³¾îÆ®¸²
+int check_crush(int bx, int by, int rotation); //bx, byÀ§Ä¡¿¡ rotationÈ¸Àü°ªÀ» °°´Â °æ¿ì Ãæµ¹ ÆÇ´Ü
+void move_block(int dir); //dir¹æÇâÀ¸·Î ºí·ÏÀ» ¿òÁ÷ÀÓ
+void init_game(); //
+int GameIsValid(); //°ÔÀÓ ¿À¹ö ÆÇº°(½×ÀÎºí·°ÀÌ ÃµÀåÀ» ³Ñ¾ú´ÂÁö ÆÇº°)
+
+/***************************************************************************************
+****************************************************************************************/
+int main(void)
 {
+
+    srand(time(NULL));  //»õ·Î¿î ºí·ÏÀ» »ý¼ºÇÒ¶§ ·£´ýÀ¸·Î ºí·ÏÀ» Á¤ÇÏ±â À§ÇØ randÇÔ¼ö »ç¿ëÇÏ±â À§ÇÑ ÄÚµå
+    setcursortype();    //Ä¿¼­¸¦ ¾ø¾Ö´Â ÇÔ¼ö½ÇÇà
+    init_game();
+
+
+    while (GameIsValid()) {
+        draw_game(SCREEN_UPDATE, SCREEN_MEMORY);
+        int ready_time = 10; // ÀÔ·ÂÀ» ¹ÞÀ» ½Ã°£
+        while(ready_time) { // ÇÏ°­±îÁö ´ë±âÇÏ¸ç Å°ÀÔ·Â¿¡ µû¸¥ ÀÛµ¿
+            int key = key_scanf();
+            switch(key) {
+                case IsArrowKey: //¹æÇâÅ°ÀÔ·Â -> ¹æÇâÀÔ·Â
+                    move_block(key_scanf());
+                case SPACE: //ºí·° È¸Àü,ÀÌµ¿
+                    move_block(key);
+                case ESC: //ÇÁ·Î±×·¥ Á¾·á
+                    exit(1);
+                case PAUSE: //ÀÏ½ÃÁ¤Áö
+                    if(PAUSE_FLAG) system("PAUSE");
+                    else           system("PAUSE");
+                default:
+                    1;
+            }
+            Sleep(speed/10);
+            ready_time--;
+        }
+        down_block();
+        if (new_block_on == 1) // drop_block()ÇÔ¼ö¿¡¼­ ¹Ù´Ú¿¡ ´ê¾ÒÀ»°æ¿ì »õ·Î¿î ºí·ÏÀ» ºÎ¸£±â À§ÇØ new_block_onÀ» 1·Î ÁöÁ¤ÇÑ´Ù.
+            make_new_block();
+    }
+
+    gotoxy(20, 20);
+    //system("cls");
+
+    char id[ID_SIZE] = "USER1";     // ID´Â À¯ÀúÀÔ·Â¿¡µû¶ó, SCORE´Â °ÔÀÓ°á°ú¿¡ µû¶ó °ªÀ»
+    int score = 10000;              // ¹ÞÀ» ¿¹Á¤ÀÌÁö¸¸ ¾ÆÁ÷ ¹Ì±¸ÇöÀÌ±â¿¡ ÀÓ½Ã·Î ÀÓÀÇÀÇ°ªÀ» ÀúÀåÇÔ
+    system("cls");
     init_DB();
-    char id[ID_SIZE] = "ABCDDD";
-    recording_and_print_ranking(id, 110); //new scoreëž‘ id ìž…ë ¥
+    gotoxy(5, 5); recording_and_print_ranking(id, score);
+    while(1) {
+        //¾ÆÁ÷ Á¾·áÇÔ¼ö ¹Ì±¸Çö
+        //Á÷Á¢ ÇÁ·Î±×·¥²ô±â
+        Sleep(500);
+    }
 
     return 0;
+}
+/***************************************************************************************
+****************************************************************************************/
+
+void init_game()
+{
+    speed = 100;
+    reset_game();       //ÃÊ±â º®°ú ÃµÀåÀ» ±×·ÁÁÖ´Â ÇÔ¼ö ½ÇÇà
+    draw_game(SCREEN_UPDATE, SCREEN_MEMORY);        //ºí·ÏµéÀ» »óÅÂº°·Î ±×·ÁÁÖ´Â ÇÔ¼ö  (SCREEN_MEMORY[i][j] ¿Í SCREEN_UPDATE[i][j]¸¦ ºñ±³ÇØ¼­ °áÁ¤)
+    draw_map();
+
+    b_type_next = rand() % 7;
+    make_new_block();        //»õ·Î¿î ºí·ÏÀ» °ÔÀÓ¸Ê »ó´Ü¿¡ À§Ä¡½ÃÅ°°í ´ÙÀ½ ºí·ÏÀ» »ý¼ºÇØ¼­ µµ¿ò¸»Ã¢¿¡ ±×·ÁÁÖ´Â ÇÔ¼ö
+    draw_game(SCREEN_UPDATE, SCREEN_MEMORY);
+}
+
+void reset_game() {
+    memset(SCREEN_UPDATE, 0, sizeof(SCREEN_UPDATE));
+    memset(SCREEN_MEMORY, 100, sizeof(SCREEN_UPDATE));
+
+
+    memset(&SCREEN_UPDATE[3][0], CEILLING, SCREEN_X); // ÃµÀå ¼³Á¤
+
+    //»çÀÌµå º® ¼³Á¤
+    for (i = 1; i < SCREEN_Y - 1; i++) {
+        SCREEN_UPDATE[i][0] = WALL;
+        SCREEN_UPDATE[i][SCREEN_X - 1] = WALL;
+    }
+
+    //¹Ù´Ú º® ¼³Á¤
+    memset(&SCREEN_UPDATE[SCREEN_Y - 1][0], WALL, SCREEN_X);
+}
+
+void down_block() {
+    if (crush_on && check_crush(bx, by + 1, b_rotation) == true) crush_on = 0; //¹ØÀÌ ºñ¾îÀÖÀ¸¸é crush flag ²û
+    if (crush_on && check_crush(bx, by + 1, b_rotation) == false) { //¹ØÀÌ ºñ¾îÀÖÁö¾Ê°í crush flag°¡ ÄÑÀúÀÖÀ¸¸é
+        for (i = 0; i < SCREEN_Y; i++) { //ÇöÀç Á¶ÀÛÁßÀÎ ºí·°À» ±»Èû
+            for (j = 0; j < SCREEN_X; j++) {
+                if (SCREEN_UPDATE[i][j] == ACTIVE_BLOCK) SCREEN_UPDATE[i][j] = INACTIVE_BLOCK;
+            }
+        }
+        crush_on = 0; //flag¸¦ ²û
+        //check_line(); //¶óÀÎÃ¼Å©¸¦ ÇÔ
+        new_block_on = 1; //»õ·Î¿î ºí·°»ý¼º flag¸¦ ÄÔ
+        return; //ÇÔ¼ö Á¾·á
+    }
+    if (check_crush(bx, by + 1, b_rotation) == true) move_block(DOWN); //¹ØÀÌ ºñ¾îÀÖÀ¸¸é ¹ØÀ¸·Î ÇÑÄ­ ÀÌµ¿
+    if (check_crush(bx, by + 1, b_rotation) == false) crush_on++; //¹ØÀ¸·Î ÀÌµ¿ÀÌ ¾ÈµÇ¸é  crush flag¸¦ ÄÔ
+}
+
+
+
+int check_crush(int bx, int by, int b_rotation) {
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < 4; j++) {
+            if (blocks[b_type][b_rotation][i][j] == 1 && SCREEN_UPDATE[by + i][bx + j] > 0) return false;
+        }
+    }
+    return true;
+};
+
+void make_new_block(void) { //»õ·Î¿î ºí·Ï »ý¼º
+    bx = (SCREEN_X / 2) - 1;
+    by = 0;
+    b_type = b_type_next;
+    b_type_next = rand() % 7;
+    b_rotation = 0;
+
+    new_block_on = 0;
+
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < 4; j++) {
+            if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = ACTIVE_BLOCK; //ÃÊ±âÀ§Ä¡ÀÎ [bx,by]¿¡¼­ updata¿¡ ÀúÀåµÈ ºí·Ï ÇüÅÂ Ãâ·Â
+        }
+    }
+    for (i = 1; i < 3; i++) { //°ÔÀÓ»óÅÂÇ¥½Ã¿¡ ´ÙÀ½¿¡ ³ª¿Ãºí·°À» ±×¸²
+        for (j = 0; j < 4; j++) {
+            if (blocks[b_type_next][0][i][j] == 1) {  //´ÙÀ½ ±×¸²ÀÇ ÇüÅÂ´Â b_type_nextÇüÀÇ Ã¹¹øÂ° È¸Àü¸ð¾çÀ¸·Î ÇÔ.
+                gotoxy(STATUS_X_ADJ + 2 + j, i + 6);
+                printf("¡á");
+            }
+            else {
+                gotoxy(STATUS_X_ADJ + 2 + j, i + 6);
+                printf("  ");
+            }
+        }
+    }
+}
+
+void move_block(int dir) {
+    switch (dir) {
+    case LEFT:
+        for (i = 0; i < 4; i++) { //ÇöÀçÁÂÇ¥ÀÇ ºí·°À» Áö¿ò
+            for (j = 0; j < 4; j++) {
+                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = EMPTY;
+            }
+        }
+        for (i = 0; i < 4; i++) { //¿ÞÂÊÀ¸·Î ÇÑÄ­°¡¼­ active blockÀ» ÂïÀ½
+            for (j = 0; j < 4; j++) {
+                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j - 1] = ACTIVE_BLOCK;
+            }
+        }
+        bx--;
+        break;
+
+    case RIGHT:
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < 4; j++) {
+                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = EMPTY;
+            }
+        }
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < 4; j++) {
+                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j + 1] = ACTIVE_BLOCK;
+            }
+        }
+        bx++;
+        break;
+
+    case DOWN:
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < 4; j++) {
+                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = EMPTY;
+            }
+        }
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < 4; j++) {
+                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i + 1][bx + j] = ACTIVE_BLOCK;
+            }
+        }
+        by++;
+        break;
+
+    case UP: //Å°º¸µå À§ÂÊ ´­·¶À»¶§ È¸Àü½ÃÅ´.
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < 4; j++) {
+                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = EMPTY;
+            }
+        }
+        b_rotation = (b_rotation + 1) % 4;
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < 4; j++) {
+                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = ACTIVE_BLOCK;
+            }
+        }
+        break;
+
+    case 100: // ¹Ù´Ú¿¡ ´ê´Â ½ÃÁ¡¿¡ ¹æÇâÀ» ¹Ù²Ü ¼ö ÀÖµµ·Ï Ãß°¡
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < 4; j++) {
+                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = EMPTY;
+            }
+        }
+        b_rotation = (b_rotation + 1) % 4;
+        for (i = 0; i < 4; i++) {
+            for (j = 0; j < 4; j++) {
+                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i - 1][bx + j] = ACTIVE_BLOCK;
+            }
+        }
+        by--;
+        break;
+    }
+}
+
+int GameIsValid() {
+    for(i = 0; i < SCREEN_X; i++) {
+        if(SCREEN_MEMORY[3][i] == INACTIVE_BLOCK) return false;
+    }
+    return true;
 }

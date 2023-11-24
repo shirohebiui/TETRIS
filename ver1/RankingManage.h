@@ -10,8 +10,6 @@
 #define ID_SIZE 24 				//ID의 크기 임의 정의
 #define DB_FILE "RANK_DB.txt" 	//FILE NAME 정의
 
-FILE *read_fp = NULL;
-
 //FILE에 저장할 규격
 typedef struct DataBase {
     char id[ID_SIZE];
@@ -70,7 +68,8 @@ void insert_node_into_sorted_idx(char *id, int score) {
 void init_DB() {
 	init_node();
 	struct DataBase rec;
-	read_fp=fopen(DB_FILE, "r");
+	
+	FILE *read_fp=fopen(DB_FILE, "r");
 	while(fscanf(read_fp, "%s %d", rec.id, &rec.score) == 2) //2개의 인자를 읽어올 수 있냐로 유효성 판단해서 파일에서 읽어옴
 	{
 		//정렬된 데이터를 가져와 삽입함으로 정렬에 소요되는 오버헤드가없음
