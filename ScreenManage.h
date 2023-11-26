@@ -11,6 +11,8 @@
 
 #define STATUS_X_ADJ SCREEN_X_ADJ+SCREEN_X+1 //게임정보표시 위치조정
 
+void test_map(char map[][SCREEN_X]);
+
 void gotoxy(int x, int y) { //gotoxy함수
     COORD pos = { 2 * x,y };
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
@@ -78,4 +80,31 @@ void draw_game(char SCREEN_UPDATE[][SCREEN_X], char SCREEN_MEMORY[][SCREEN_X]) {
         }
     }
     memmove(SCREEN_MEMORY, SCREEN_UPDATE, SCREEN_Y*SCREEN_X); //게임화면을 갱신 (mem <- update)
+}
+
+int clear_line(char SCREEN_UPDATE[][SCREEN_X], char SCREEN_MEMORY[][SCREEN_X], int by) {
+    int line = 0;
+    int top = SCREEN_Y;
+    for (int i = 0; i < 4; i++) {
+        int sum = 0;
+        for(int j = 0; j < SCREEN_X; j++) {
+            if(SCREEN_UPDATE[by+i][j] > 0) sum++;
+        }
+        if(sum == SCREEN_X) {
+            line++;
+            memmove(&SCREEN_UPDATE[5], &SCREEN_UPDATE[4], (by+i-4) * SCREEN_X);
+            memset(&SCREEN_UPDATE[4][1], EMPTY, SCREEN_X-2);
+            draw_game(SCREEN_UPDATE, SCREEN_MEMORY);
+        }
+    }
+    return line+1;
+}
+
+void test_map(char map[][SCREEN_X]) {
+    for(int i=0; i<SCREEN_Y; i++) {
+        for(int j=0; j<SCREEN_X; j++) {
+            printf("%d", map[i][j]);
+        }
+        printf("\n");
+    }
 }

@@ -46,9 +46,13 @@ void reset_game_cpy(void); //copy 게임판(SCREEN_MEMORY[][]를 초기화)
 void make_new_block(void); //새로운 블록을 하나 만듦
 void down_block(void); //블록을 아래로 떨어트림
 int check_crush(int bx, int by, int rotation); //bx, by위치에 rotation회전값을 같는 경우 충돌 판단
-void move_block(int dir); //dir방향으로 블록을 움직임
+int move_block(int dir); //dir방향으로 블록을 움직임, 성공하면 1 리턴
 void init_game(); //
 int GameIsValid(); //게임 오버 판별(쌓인블럭이 천장을 넘었는지 판별)
+void user_cmd_scan(); //유저입력받기
+void block_clear();   //블럭 정보 제거
+void block_update();  //블럭 정보 업데이트
+int count_score();
 
 /***************************************************************************************
 ****************************************************************************************/
@@ -59,46 +63,31 @@ int main(void)
     setcursortype();    //커서를 없애는 함수실행
     init_game();
 
-
+    int score = 0;
+    draw_game(SCREEN_UPDATE, SCREEN_MEMORY);
     while (GameIsValid()) {
-        draw_game(SCREEN_UPDATE, SCREEN_MEMORY);
-        int ready_time = 10; // 입력을 받을 시간
-        while(ready_time) { // 하강까지 대기하며 키입력에 따른 작동
-            int key = key_scanf();
-            switch(key) {
-                case IsArrowKey: //방향키입력 -> 방향입력
-                    move_block(key_scanf());
-                case SPACE: //블럭 회전,이동
-                    move_block(key);
-                case ESC: //프로그램 종료
-                    exit(1);
-                case PAUSE: //일시정지
-                    if(PAUSE_FLAG) system("PAUSE");
-                    else           system("PAUSE");
-                default:
-                    1;
-            }
-            Sleep(speed/10);
-            ready_time--;
-        }
+        int combo = 0;
+        user_cmd_scan(speed/10);
         down_block();
-        if (new_block_on == 1) // drop_block()함수에서 바닥에 닿았을경우 새로운 블록을 부르기 위해 new_block_on을 1로 지정한다.
+        if (new_block_on == 1) { // drop_block()함수에서 바닥에 닿았을경우 새로운 블록을 부르기 위해 new_block_on을 1로 지정한다.
             make_new_block();
+            combo = count_score();
+            if(combo) {
+                score += combo * 100; Sleep(100);
+            }
+        }
+        draw_game(SCREEN_UPDATE, SCREEN_MEMORY);
     }
 
     gotoxy(20, 20);
-    //system("cls");
 
     char id[ID_SIZE] = "USER1";     // ID는 유저입력에따라, SCORE는 게임결과에 따라 값을
-    int score = 10000;              // 받을 예정이지만 아직 미구현이기에 임시로 임의의값을 저장함
     system("cls");
+    printf("your score : %d\n", score);
     init_DB();
     gotoxy(5, 5); recording_and_print_ranking(id, score);
-    while(1) {
-        //아직 종료함수 미구현
-        //직접 프로그램끄기
-        Sleep(500);
-    }
+    system("Pause");
+    Sleep(1000);
 
     return 0;
 }
@@ -151,12 +140,11 @@ void down_block() {
     if (check_crush(bx, by + 1, b_rotation) == false) crush_on++; //밑으로 이동이 안되면  crush flag를 켬
 }
 
-
-
 int check_crush(int bx, int by, int b_rotation) {
-    for (i = 0; i < 4; i++) {
-        for (j = 0; j < 4; j++) {
-            if (blocks[b_type][b_rotation][i][j] == 1 && SCREEN_UPDATE[by + i][bx + j] > 0) return false;
+    int ii, jj; //함수 내부 동작이므로 변수 따로할당
+    for (ii = 0; ii < 4; ii++) {
+        for (jj = 0; jj < 4; jj++) {
+            if (blocks[b_type][b_rotation][ii][jj] == 1 && SCREEN_UPDATE[by + ii][bx + jj] > 0) return false;
         }
     }
     return true;
@@ -190,65 +178,39 @@ void make_new_block(void) { //새로운 블록 생성
     }
 }
 
-void move_block(int dir) {
+int move_block(int dir) {
+    int tmp_rotation;
     switch (dir) {
     case LEFT:
-        for (i = 0; i < 4; i++) { //현재좌표의 블럭을 지움
-            for (j = 0; j < 4; j++) {
-                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = EMPTY;
-            }
-        }
-        for (i = 0; i < 4; i++) { //왼쪽으로 한칸가서 active block을 찍음
-            for (j = 0; j < 4; j++) {
-                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j - 1] = ACTIVE_BLOCK;
-            }
-        }
+        if(!check_crush(bx-1, by, b_rotation)) {Sleep(10); return 0;}
+        block_clear();
         bx--;
-        break;
+        block_update();
+        return 1;
 
     case RIGHT:
-        for (i = 0; i < 4; i++) {
-            for (j = 0; j < 4; j++) {
-                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = EMPTY;
-            }
-        }
-        for (i = 0; i < 4; i++) {
-            for (j = 0; j < 4; j++) {
-                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j + 1] = ACTIVE_BLOCK;
-            }
-        }
+        if(!check_crush(bx+1, by, b_rotation)) {Sleep(10); return 0;}
+        block_clear();
         bx++;
-        break;
+        block_update();
+        return 1;
 
     case DOWN:
-        for (i = 0; i < 4; i++) {
-            for (j = 0; j < 4; j++) {
-                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = EMPTY;
-            }
-        }
-        for (i = 0; i < 4; i++) {
-            for (j = 0; j < 4; j++) {
-                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i + 1][bx + j] = ACTIVE_BLOCK;
-            }
-        }
+        if(!check_crush(bx, by+1, b_rotation)) {Sleep(10); return 0;}
+        block_clear();
         by++;
-        break;
+        block_update();
+        return 1;
 
     case UP: //키보드 위쪽 눌렀을때 회전시킴.
-        for (i = 0; i < 4; i++) {
-            for (j = 0; j < 4; j++) {
-                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = EMPTY;
-            }
-        }
-        b_rotation = (b_rotation + 1) % 4;
-        for (i = 0; i < 4; i++) {
-            for (j = 0; j < 4; j++) {
-                if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = ACTIVE_BLOCK;
-            }
-        }
-        break;
+        tmp_rotation = (b_rotation + 1) % 4;
+        if(!check_crush(bx, by, tmp_rotation)) {Sleep(10); return 0;}
+        block_clear();
+        b_rotation = tmp_rotation;
+        block_update();
+        return 1;
 
-    case 100: // 바닥에 닿는 시점에 방향을 바꿀 수 있도록 추가
+    case 100: //Lockdown Delay(락다운 딜레이)
         for (i = 0; i < 4; i++) {
             for (j = 0; j < 4; j++) {
                 if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = EMPTY;
@@ -261,8 +223,9 @@ void move_block(int dir) {
             }
         }
         by--;
-        break;
+        return 1;
     }
+    return 0;
 }
 
 int GameIsValid() {
@@ -270,4 +233,53 @@ int GameIsValid() {
         if(SCREEN_MEMORY[3][i] == INACTIVE_BLOCK) return false;
     }
     return true;
+}
+
+void user_cmd_scan(int cnt) {
+    while(cnt--) { // 하강까지 대기하며 키입력에 따른 작동
+        int key = key_scanf();
+        switch(key) {
+            case IsArrowKey: //방향키입력 -> 방향입력
+                move_block(key_scanf());
+                break;
+            case SPACE: //블럭 이동
+                move_block(key);
+                break;
+            case ESC: //프로그램 종료
+                exit(1);
+                break;
+            case PAUSE: //일시정지
+                while(key_scanf() == PAUSE) {
+                    Sleep(10);
+                    //다시 PAUSE누를때까지 무한대기
+                }
+                break;
+            default:
+                break;
+        }
+        draw_game(SCREEN_UPDATE, SCREEN_MEMORY);
+        Sleep(10);
+    }
+    return;
+}
+
+void block_clear() {
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < 4; j++) {
+            if(SCREEN_UPDATE[by + i][bx + j] == ACTIVE_BLOCK)
+                SCREEN_UPDATE[by + i][bx + j] = EMPTY;
+        }
+    }
+}
+
+void block_update() {
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < 4; j++) {
+            if (blocks[b_type][b_rotation][i][j] == 1) SCREEN_UPDATE[by + i][bx + j] = ACTIVE_BLOCK;
+        }
+    }
+}
+
+int count_score() {
+    return 100 * clear_line(SCREEN_UPDATE, SCREEN_MEMORY, by);
 }
