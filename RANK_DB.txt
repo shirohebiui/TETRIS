@@ -1,0 +1,10 @@
+jaehyub 600
+lee 400
+hello 200
+. 200
+haha 100
+world 100
+USER1 0
+USER1 0
+USER1 0
+USER1 0
